@@ -84,23 +84,24 @@ public class ServerUI extends JFrame implements ActionListener {
         }
     }
     private void loadDataFromDatabase() {
-    String query = "SELECT ip_address, device_name, message, status FROM ClientData";
-      try (Statement stmt = dbConnection.createStatement();
-           ResultSet rs = stmt.executeQuery(query)) {
-          while (rs.next()) {
-              String ipAddress = rs.getString("ip_address");
-              String deviceName = rs.getString("device_name");
-              String message = rs.getString("message");
-              String status = rs.getString("status");
+    String query = "SELECT id, device_name, message, status FROM ClientData"; // Include 'id' instead of 'ip_address'
+    try (Statement stmt = dbConnection.createStatement();
+         ResultSet rs = stmt.executeQuery(query)) {
+        while (rs.next()) {
+            int id = rs.getInt("id"); // Retrieve 'id' as an integer
+            String deviceName = rs.getString("device_name");
+            String message = rs.getString("message");
+            String status = rs.getString("status");
 
-              // Add the data to the table model
-              tableModel.addRow(new Object[]{ipAddress, deviceName, message, status});
-          }
-          appendMessage("Existing data loaded into the table successfully.\n");
-      } catch (SQLException e) {
-          appendMessage("Error loading data from database: " + e.getMessage() + "\n");
-      }
-   }
+            // Add the data to the table model
+            tableModel.addRow(new Object[]{id, deviceName, message, status}); // Add 'id' to the table model
+        }
+        appendMessage("Existing data loaded into the table successfully.\n");
+    } catch (SQLException e) {
+        appendMessage("Error loading data from database: " + e.getMessage() + "\n");
+    }
+}
+
 
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -235,7 +236,7 @@ public class ServerUI extends JFrame implements ActionListener {
                     java.util.Date currentDate = new java.util.Date(); // Store the current date
 
                     // Store the information in the database and table
-                    storeClientData(currentDate, deviceName, message, ipAddress);
+                    storeClientData(message);
                 }
             } catch (IOException e) {
                 appendMessage("Client disconnected: " + e.getMessage() + "\n");
@@ -244,24 +245,40 @@ public class ServerUI extends JFrame implements ActionListener {
             }
         }
 
-        private void storeClientData(java.util.Date timestamp, String deviceName, String message, String ipAddress) {
-            String query = "INSERT INTO ClientData (timestamp, device_name, message, ip_address, status) VALUES (?, ?, ?, ?, 'Pending')";
-            try (PreparedStatement pstmt = dbConnection.prepareStatement(query)) {
-                pstmt.setTimestamp(1, new java.sql.Timestamp(timestamp.getTime())); // Ensure timestamp is saved correctly
-                pstmt.setString(2, deviceName);
-                pstmt.setString(3, message);
-                pstmt.setString(4, ipAddress);
-                pstmt.executeUpdate();
-                appendMessage("Client data stored in database successfully with status 'Pending'.\n");
+        private void storeClientData(String combinedMessage) 
+        {
+            try {
+                // Parse the combined message
+                String[] lines = combinedMessage.split("\n");
+                String timestampLine = lines[0].split(": ", 2)[1];
+                String deviceName = lines[1].split(": ", 2)[1];
+                String userMessage = lines[2].split(": ", 2)[1];
+                String ipAddress = lines[3].split(": ", 2)[1];
 
-                // Add client to table
-                SwingUtilities.invokeLater(() -> {
-                    tableModel.addRow(new Object[]{ipAddress, deviceName, message, "Pending"});
-                });
-            } catch (SQLException e) {
-                appendMessage("Error storing client data: " + e.getMessage() + "\n");
+                // Convert the parsed timestamp to a java.sql.Timestamp
+                java.util.Date parsedDate = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.ENGLISH).parse(timestampLine);
+                java.sql.Timestamp sqlTimestamp = new java.sql.Timestamp(parsedDate.getTime());
+
+                // Insert the parsed data into the database
+                String query = "INSERT INTO ClientData (timestamp, device_name, message, ip_address, status) VALUES (?, ?, ?, ?, 'Pending')";
+                try (PreparedStatement pstmt = dbConnection.prepareStatement(query)) {
+                    pstmt.setTimestamp(1, sqlTimestamp);
+                    pstmt.setString(2, deviceName);
+                    pstmt.setString(3, userMessage);
+                    pstmt.setString(4, ipAddress);
+                    pstmt.executeUpdate();
+                    appendMessage("Client data stored in database successfully with status 'Pending'.\n");
+
+                    // Add client to the table
+                    SwingUtilities.invokeLater(() -> {
+                        tableModel.addRow(new Object[]{ipAddress, deviceName, userMessage, "Pending"});
+                    });
+                }
+            } catch (Exception e) {
+                appendMessage("Error parsing or storing client data: " + e.getMessage() + "\n");
             }
         }
+
 
         public boolean isActive() {
             return active;
