@@ -141,30 +141,33 @@ public class ServerUI extends JFrame implements ActionListener {
 
     // Method to update client status in the table and database
     private void updateClientStatus(String status) {
-        int selectedRow = clientTable.getSelectedRow();
-        if (selectedRow != -1) {
-            String ipAddress = (String) tableModel.getValueAt(selectedRow, 0);
-            String deviceName = (String) tableModel.getValueAt(selectedRow, 1);
-            String message = (String) tableModel.getValueAt(selectedRow, 2);
+      int selectedRow = clientTable.getSelectedRow();
+      if (selectedRow != -1) {
+          int id = (int) tableModel.getValueAt(selectedRow, 0); // Get the 'id' from the first column
+          String deviceName = (String) tableModel.getValueAt(selectedRow, 1);
+          String message = (String) tableModel.getValueAt(selectedRow, 2);
 
-            // Update status in the database
-            updateStatusInDatabase(ipAddress, status);
+          // Update status in the database
+          updateStatusInDatabase(id, status); // Use 'id' instead of 'ipAddress'
 
-            // Update status in the table
-            tableModel.setValueAt(status, selectedRow, 3);
-            appendMessage("Status updated to " + status + " for " + deviceName + " (" + ipAddress + ").\n");
-        } else {
-            JOptionPane.showMessageDialog(this, "Please select a client from the table.", "Warning", JOptionPane.WARNING_MESSAGE);
-        }
-    }
+          // Update status in the table
+          tableModel.setValueAt(status, selectedRow, 3);
+          appendMessage("Status updated to " + status + " for " + deviceName + " (ID: " + id + ").\n");
+      } else {
+          JOptionPane.showMessageDialog(this, "Please select a client from the table.", "Warning", JOptionPane.WARNING_MESSAGE);
+      }
+  }
+
 
     // Update the status in the database
-    private void updateStatusInDatabase(String ipAddress, String status) {
-        String query = "UPDATE ClientData SET status = ? WHERE ip_address = ?";
+    private void updateStatusInDatabase(int id, String status)
+   {
+        String query = "UPDATE ClientData SET status = ? WHERE id = ?"; // Use 'id' for identification
         try (PreparedStatement pstmt = dbConnection.prepareStatement(query)) {
             pstmt.setString(1, status);
-            pstmt.setString(2, ipAddress);
+            pstmt.setInt(2, id); // Bind 'id' to the query
             pstmt.executeUpdate();
+            appendMessage("Status in database updated successfully for ID: " + id + ".\n");
         } catch (SQLException e) {
             appendMessage("Error updating status: " + e.getMessage() + "\n");
         }
@@ -177,7 +180,7 @@ public class ServerUI extends JFrame implements ActionListener {
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                appendMessage("\nClient connected: " + clientSocket.getInetAddress().getHostAddress() + "\n");
+                appendMessage("Client connected: " + clientSocket.getInetAddress().getHostAddress() + "\n");
 
                 // Create a new ClientHandler for each client
                 ClientHandler clientHandler = new ClientHandler(clientSocket);
@@ -196,7 +199,7 @@ public class ServerUI extends JFrame implements ActionListener {
         
         // Append timestamp with message to the message area
         SwingUtilities.invokeLater(() -> {
-            messageArea.append("[" + timestamp + "] " + message);
+            messageArea.append("\n[" + timestamp + "] " + message);
         });
     }
 
@@ -222,7 +225,7 @@ public class ServerUI extends JFrame implements ActionListener {
                 String message;
                 while (active) {
                     message = dis.readUTF();
-                    appendMessage("Message from client: " + message + "\n");
+                    appendMessage("Message from client: \n" + message + "\n");
 
                     if (message.equalsIgnoreCase("exit")) {
                         appendMessage("Client disconnected!\n");
@@ -245,39 +248,46 @@ public class ServerUI extends JFrame implements ActionListener {
             }
         }
 
-        private void storeClientData(String combinedMessage) 
-        {
-            try {
-                // Parse the combined message
-                String[] lines = combinedMessage.split("\n");
-                String timestampLine = lines[0].split(": ", 2)[1];
-                String deviceName = lines[1].split(": ", 2)[1];
-                String userMessage = lines[2].split(": ", 2)[1];
-                String ipAddress = lines[3].split(": ", 2)[1];
+       private void storeClientData(String combinedMessage) {
+    try {
+        // Parse the combined message
+        String[] lines = combinedMessage.split("\n");
+        String timestampLine = lines[0].split(": ", 2)[1];
+        String deviceName = lines[1].split(": ", 2)[1];
+        String userMessage = lines[2].split(": ", 2)[1];
+        String ipAddress = lines[3].split(": ", 2)[1];
 
-                // Convert the parsed timestamp to a java.sql.Timestamp
-                java.util.Date parsedDate = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.ENGLISH).parse(timestampLine);
-                java.sql.Timestamp sqlTimestamp = new java.sql.Timestamp(parsedDate.getTime());
+        // Convert the parsed timestamp to a java.sql.Timestamp
+        java.util.Date parsedDate = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.ENGLISH).parse(timestampLine);
+        java.sql.Timestamp sqlTimestamp = new java.sql.Timestamp(parsedDate.getTime());
 
-                // Insert the parsed data into the database
-                String query = "INSERT INTO ClientData (timestamp, device_name, message, ip_address, status) VALUES (?, ?, ?, ?, 'Pending')";
-                try (PreparedStatement pstmt = dbConnection.prepareStatement(query)) {
-                    pstmt.setTimestamp(1, sqlTimestamp);
-                    pstmt.setString(2, deviceName);
-                    pstmt.setString(3, userMessage);
-                    pstmt.setString(4, ipAddress);
-                    pstmt.executeUpdate();
-                    appendMessage("Client data stored in database successfully with status 'Pending'.\n");
+        // Insert the parsed data into the database and retrieve the generated id
+        String query = "INSERT INTO ClientData (timestamp, device_name, message, ip_address, status) VALUES (?, ?, ?, ?, 'Pending')";
+        try (PreparedStatement pstmt = dbConnection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setTimestamp(1, sqlTimestamp);
+            pstmt.setString(2, deviceName);
+            pstmt.setString(3, userMessage);
+            pstmt.setString(4, ipAddress);
+            pstmt.executeUpdate();
 
-                    // Add client to the table
+            // Retrieve the generated id
+            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    int id = generatedKeys.getInt(1); // Retrieve the generated id
+                    appendMessage("\nClient data stored in database successfully with status 'Pending' and ID: " + id + ".\n");
+
+                    // Add client data to the table
                     SwingUtilities.invokeLater(() -> {
-                        tableModel.addRow(new Object[]{ipAddress, deviceName, userMessage, "Pending"});
+                        tableModel.addRow(new Object[]{id, deviceName, userMessage, "Pending"}); // Use id instead of ipAddress
                     });
                 }
-            } catch (Exception e) {
-                appendMessage("Error parsing or storing client data: " + e.getMessage() + "\n");
             }
         }
+    } catch (Exception e) {
+        appendMessage("Error parsing or storing client data: " + e.getMessage() + "\n");
+    }
+}
+
 
 
         public boolean isActive() {
