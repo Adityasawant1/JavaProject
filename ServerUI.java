@@ -9,9 +9,9 @@ import javax.swing.table.DefaultTableModel;
 import java.util.List;
 
 public class ServerUI extends JFrame implements ActionListener {
-    private JTextArea messageArea;
+    private JTextArea logArea,reportArea;    
     private JTextField inputField;
-    private JButton sendButton, pendingButton, solveButton, doneButton;
+    private JButton sendButton, pendingButton, solveButton, doneButton,generateReportButton;
     private JTable clientTable;
     private DefaultTableModel tableModel;
     private Connection dbConnection;
@@ -20,45 +20,80 @@ public class ServerUI extends JFrame implements ActionListener {
     
     public ServerUI() {
         // Set up the frame
-        super("Server Application");
-        setSize(600, 600);
+       super("Server Dashboard");
+        setSize(900, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(null);
-        
-        // Create message area and input field
-        messageArea = new JTextArea();
-        messageArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(messageArea);
-        scrollPane.setBounds(20, 20, 540, 200);
-        
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
+
+
+
+         // Header Panel
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(new Color(45, 45, 45));
+        JLabel headerLabel = new JLabel("Server Dashboard", JLabel.CENTER);
+        headerLabel.setForeground(Color.WHITE);
+        headerLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        headerPanel.add(headerLabel, BorderLayout.CENTER);
+        add(headerPanel, BorderLayout.NORTH);
+
+        // Tabbed Panel for Main Content
+        JTabbedPane tabbedPane = new JTabbedPane();
+
+        JPanel messagingPanel = new JPanel(new BorderLayout());
+        logArea = new JTextArea();
+        logArea.setEditable(false);
+        JScrollPane logScrollPane = new JScrollPane(logArea);
         inputField = new JTextField();
         sendButton = new JButton("Send");
-        pendingButton = new JButton("Pending Work");
-        solveButton = new JButton("Mark as Solved");
-        doneButton = new JButton("Mark as Done");
-        
-        // Create table to display client data
-        String[] columnNames = {"Client IP", "Device Name", "Message", "Status"};
+
+          JPanel clientButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+          pendingButton = new JButton("Pending");
+          solveButton = new JButton("Mark Solved");
+          doneButton = new JButton("Mark Done");
+          clientButtonPanel.add(pendingButton);
+          clientButtonPanel.add(solveButton);
+          clientButtonPanel.add(doneButton);
+          
+
+        JPanel inputPanel = new JPanel(new BorderLayout());
+        inputPanel.add(inputField, BorderLayout.CENTER);
+        inputPanel.add(sendButton, BorderLayout.EAST);
+
+        messagingPanel.add(logScrollPane, BorderLayout.CENTER);
+        messagingPanel.add(inputPanel, BorderLayout.SOUTH);
+        tabbedPane.addTab("Messaging", messagingPanel);
+
+        // Add TabbedPane to Frame
+        add(tabbedPane, BorderLayout.CENTER);
+
+        // Client Management Tab
+        JPanel clientManagementPanel = new JPanel(new BorderLayout());
+        String[] columnNames = {"ID", "Device Name", "Message","Date","Created At", "Resolved At", "Status"};
         tableModel = new DefaultTableModel(columnNames, 0);
         clientTable = new JTable(tableModel);
         JScrollPane tableScrollPane = new JScrollPane(clientTable);
-        tableScrollPane.setBounds(20, 230, 540, 150);
         
-        // Set bounds for components
-        inputField.setBounds(20, 400, 400, 30);
-        sendButton.setBounds(430, 400, 100, 30);
-        pendingButton.setBounds(20, 440, 150, 30);
-        solveButton.setBounds(180, 440, 150, 30);
-        doneButton.setBounds(340, 440, 150, 30);
+        clientManagementPanel.add(tableScrollPane, BorderLayout.CENTER);
+        clientManagementPanel.add(clientButtonPanel, BorderLayout.SOUTH);
+        tabbedPane.addTab("Client Management", clientManagementPanel);
         
-        // Add components to the frame
-        add(scrollPane);
-        add(inputField);
-        add(sendButton);
-        add(pendingButton);
-        add(solveButton);
-        add(doneButton);
-        add(tableScrollPane);
+       // Report Generation Tab
+        JPanel reportPanel = new JPanel(new BorderLayout());
+        reportArea = new JTextArea();
+        reportArea.setEditable(false);
+        JScrollPane reportScrollPane = new JScrollPane(reportArea);
+        generateReportButton = new JButton("Generate Report");
+
+        reportPanel.add(reportScrollPane, BorderLayout.CENTER);
+        reportPanel.add(generateReportButton, BorderLayout.SOUTH);
+        tabbedPane.addTab("Report Generation", reportPanel);
+        // Footer Panel
+        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JLabel footerLabel = new JLabel("Developed by Aditya | 2025", JLabel.RIGHT);
+        footerPanel.add(footerLabel);
+        add(footerPanel, BorderLayout.SOUTH);
+
         
         // Register action listeners
         sendButton.addActionListener(this);
@@ -79,29 +114,40 @@ public class ServerUI extends JFrame implements ActionListener {
             dbConnection = DriverManager.getConnection(url, username, password);
             appendMessage("Database connected successfully.\n");
         } catch (SQLException e) {
-            appendMessage("Error connecting to database: " + e.getMessage() + "\n");
+            JOptionPane.showMessageDialog(this, "Connection Failed", "Warning", JOptionPane.WARNING_MESSAGE);
+            
             System.exit(1);
         }
     }
     private void loadDataFromDatabase() {
-    String query = "SELECT id, device_name, message, status FROM ClientData"; // Include 'id' instead of 'ip_address'
+    String query = "SELECT id, device_name, message, status, timestamp, created_at, resolved_at FROM ClientData ORDER BY CASE status WHEN 'Pending' THEN 1 WHEN 'Solved' THEN 2 WHEN 'Done' THEN 3 ELSE 4 END, id";
     try (Statement stmt = dbConnection.createStatement();
          ResultSet rs = stmt.executeQuery(query)) {
+        tableModel.setRowCount(0); // Clear existing rows
         while (rs.next()) {
-            int id = rs.getInt("id"); // Retrieve 'id' as an integer
+            int id = rs.getInt("id");
             String deviceName = rs.getString("device_name");
             String message = rs.getString("message");
             String status = rs.getString("status");
+            Timestamp timestamp = rs.getTimestamp("timestamp");
+            Timestamp createdAt = rs.getTimestamp("created_at");
+            Timestamp resolvedAt = rs.getTimestamp("resolved_at");
+
+            // Format timestamp to show only date
+            String timestampDate = timestamp != null ? new java.text.SimpleDateFormat("yyyy-MM-dd").format(timestamp) : "";
+
+            // Format created_at and resolved_at to show only time
+            String createdAtTime = createdAt != null ? new java.text.SimpleDateFormat("HH:mm:ss").format(createdAt) : "";
+            String resolvedAtTime = resolvedAt != null ? new java.text.SimpleDateFormat("HH:mm:ss").format(resolvedAt) : "";
 
             // Add the data to the table model
-            tableModel.addRow(new Object[]{id, deviceName, message, status}); // Add 'id' to the table model
+            tableModel.addRow(new Object[]{id,deviceName,message,timestampDate,createdAtTime,resolvedAtTime,status});
         }
-        appendMessage("Existing data loaded into the table successfully.\n");
+        appendMessage("Data loaded and sorted by status successfully.\n");
     } catch (SQLException e) {
         appendMessage("Error loading data from database: " + e.getMessage() + "\n");
     }
 }
-
 
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -137,41 +183,62 @@ public class ServerUI extends JFrame implements ActionListener {
         if (e.getSource() == doneButton) {
             updateClientStatus("Done");
         }
+        if (e.getSource() == generateReportButton) {
+            generateReport();
+        }
+    }
+
+  private void generateReport() {
+        StringBuilder report = new StringBuilder();
+        String query = "SELECT status, COUNT(*) as count FROM ClientData GROUP BY status";
+        try (Statement stmt = dbConnection.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+            while (rs.next()) {
+                String status = rs.getString("status");
+                int count = rs.getInt("count");
+                report.append("Status: ").append(status).append(" - ").append(count).append("\n");
+            }
+            reportArea.setText(report.toString());
+        } catch (SQLException e) {
+            appendMessage("Error generating report: " + e.getMessage() + "\n");
+        }
     }
 
     // Method to update client status in the table and database
     private void updateClientStatus(String status) {
-      int selectedRow = clientTable.getSelectedRow();
-      if (selectedRow != -1) {
-          int id = (int) tableModel.getValueAt(selectedRow, 0); // Get the 'id' from the first column
-          String deviceName = (String) tableModel.getValueAt(selectedRow, 1);
-          String message = (String) tableModel.getValueAt(selectedRow, 2);
+    int selectedRow = clientTable.getSelectedRow();
+    if (selectedRow != -1) {
+        int id = (int) tableModel.getValueAt(selectedRow, 0);
+        updateStatusInDatabase(id, status);
+        loadDataFromDatabase(); // Reload and re-sort the data
+        appendMessage("Status updated to " + status + " for ID: " + id + ".\n");
+    } else {
+        JOptionPane.showMessageDialog(this, "Please select a client from the table.", "Warning", JOptionPane.WARNING_MESSAGE);
+    }
+}
 
-          // Update status in the database
-          updateStatusInDatabase(id, status); // Use 'id' instead of 'ipAddress'
-
-          // Update status in the table
-          tableModel.setValueAt(status, selectedRow, 3);
-          appendMessage("Status updated to " + status + " for " + deviceName + " (ID: " + id + ").\n");
-      } else {
-          JOptionPane.showMessageDialog(this, "Please select a client from the table.", "Warning", JOptionPane.WARNING_MESSAGE);
-      }
-  }
 
 
     // Update the status in the database
-    private void updateStatusInDatabase(int id, String status)
-   {
-        String query = "UPDATE ClientData SET status = ? WHERE id = ?"; // Use 'id' for identification
-        try (PreparedStatement pstmt = dbConnection.prepareStatement(query)) {
-            pstmt.setString(1, status);
-            pstmt.setInt(2, id); // Bind 'id' to the query
-            pstmt.executeUpdate();
-            appendMessage("Status in database updated successfully for ID: " + id + ".\n");
-        } catch (SQLException e) {
-            appendMessage("Error updating status: " + e.getMessage() + "\n");
-        }
+   private void updateStatusInDatabase(int id, String status) {
+    String query;
+    if (status.equals("Done")) {
+        // Store only time in 'resolved_at' when status is 'Done'
+        query = "UPDATE ClientData SET status = ?, resolved_at = CURRENT_TIME WHERE id = ?";
+    } else {
+        // Clear the 'resolved_at' field when status is not 'Done'
+        query = "UPDATE ClientData SET status = ?, resolved_at = NULL WHERE id = ?";
     }
+    try (PreparedStatement pstmt = dbConnection.prepareStatement(query)) {
+        pstmt.setString(1, status);
+        pstmt.setInt(2, id);
+        pstmt.executeUpdate();
+        appendMessage("Status updated to '" + status + "' for ID: " + id + ".\n");
+    } catch (SQLException e) {
+        appendMessage("Error updating status: " + e.getMessage() + "\n");
+    }
+}
+
 
     public void startServer() {
         try {
@@ -199,7 +266,7 @@ public class ServerUI extends JFrame implements ActionListener {
         
         // Append timestamp with message to the message area
         SwingUtilities.invokeLater(() -> {
-            messageArea.append("\n[" + timestamp + "] " + message);
+            logArea.append("\n[" + timestamp + "] " + message);
         });
     }
 
@@ -248,7 +315,7 @@ public class ServerUI extends JFrame implements ActionListener {
             }
         }
 
-       private void storeClientData(String combinedMessage) {
+    private void storeClientData(String combinedMessage) {
     try {
         // Parse the combined message
         String[] lines = combinedMessage.split("\n");
@@ -257,17 +324,18 @@ public class ServerUI extends JFrame implements ActionListener {
         String userMessage = lines[2].split(": ", 2)[1];
         String ipAddress = lines[3].split(": ", 2)[1];
 
-        // Convert the parsed timestamp to a java.sql.Timestamp
+        // Convert the parsed timestamp to java.sql.Time (only the time)
         java.util.Date parsedDate = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.ENGLISH).parse(timestampLine);
-        java.sql.Timestamp sqlTimestamp = new java.sql.Timestamp(parsedDate.getTime());
+        java.sql.Time sqlTime = new java.sql.Time(parsedDate.getTime()); // Only the time part
 
         // Insert the parsed data into the database and retrieve the generated id
-        String query = "INSERT INTO ClientData (timestamp, device_name, message, ip_address, status) VALUES (?, ?, ?, ?, 'Pending')";
+        String query = "INSERT INTO ClientData (timestamp, device_name, message, ip_address, status, created_at) VALUES (?, ?, ?, ?, 'Pending', ?)";
         try (PreparedStatement pstmt = dbConnection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setTimestamp(1, sqlTimestamp);
+            pstmt.setDate(1, new java.sql.Date(parsedDate.getTime())); // Set date
             pstmt.setString(2, deviceName);
             pstmt.setString(3, userMessage);
             pstmt.setString(4, ipAddress);
+            pstmt.setTime(5, sqlTime); // Set only the time
             pstmt.executeUpdate();
 
             // Retrieve the generated id
@@ -278,7 +346,7 @@ public class ServerUI extends JFrame implements ActionListener {
 
                     // Add client data to the table
                     SwingUtilities.invokeLater(() -> {
-                        tableModel.addRow(new Object[]{id, deviceName, userMessage, "Pending"}); // Use id instead of ipAddress
+                        tableModel.insertRow(0, new Object[]{id, deviceName, userMessage, "Pending"}); // Insert at the top
                     });
                 }
             }
