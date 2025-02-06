@@ -7,54 +7,53 @@ import java.sql.*;
 import java.util.*;
 import javax.swing.table.DefaultTableModel;
 import java.util.List;
+import java.util.Date;
+import com.toedter.calendar.JDateChooser;
+import java.text.SimpleDateFormat;
+import com.itextpdf.text.*;
+import com.itextpdf.text.pdf.*;
+import java.awt.Desktop;
 
 public class ServerUI extends JFrame implements ActionListener {
+    private JComboBox<String> labDropdown;  // Declare at class level
+    private JDateChooser startDateChooser, endDateChooser; 
     private JTextArea logArea,reportArea;    
     private JTextField inputField;
-    private JButton sendButton, pendingButton, solveButton, doneButton,generateReportButton;
-    private JTable clientTable;
-    private DefaultTableModel tableModel;
+    private JButton sendButton, pendingButton, solveButton, doneButton,generateReportButton,printReportButton;
+    private JTable clientTable,reportTable;
+    private DefaultTableModel tableModel,reportTableModel;
     private Connection dbConnection;
     private ServerSocket serverSocket;
     private final List<ClientHandler> clients = Collections.synchronizedList(new ArrayList<>());
     
-    public ServerUI() {
+  public ServerUI() {
         // Set up the frame
-       super("Server Dashboard");
+        super("Server Dashboard");
         setSize(900, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-
-
-         // Header Panel
+        // Header Panel
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(new Color(45, 45, 45));
         JLabel headerLabel = new JLabel("Server Dashboard", JLabel.CENTER);
         headerLabel.setForeground(Color.WHITE);
-        headerLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        headerLabel.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 24));
+
         headerPanel.add(headerLabel, BorderLayout.CENTER);
         add(headerPanel, BorderLayout.NORTH);
 
         // Tabbed Panel for Main Content
         JTabbedPane tabbedPane = new JTabbedPane();
 
+        // Messaging Panel
         JPanel messagingPanel = new JPanel(new BorderLayout());
         logArea = new JTextArea();
         logArea.setEditable(false);
         JScrollPane logScrollPane = new JScrollPane(logArea);
         inputField = new JTextField();
         sendButton = new JButton("Send");
-
-          JPanel clientButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-          pendingButton = new JButton("Pending");
-          solveButton = new JButton("Mark Solved");
-          doneButton = new JButton("Mark Done");
-          clientButtonPanel.add(pendingButton);
-          clientButtonPanel.add(solveButton);
-          clientButtonPanel.add(doneButton);
-          
 
         JPanel inputPanel = new JPanel(new BorderLayout());
         inputPanel.add(inputField, BorderLayout.CENTER);
@@ -64,53 +63,114 @@ public class ServerUI extends JFrame implements ActionListener {
         messagingPanel.add(inputPanel, BorderLayout.SOUTH);
         tabbedPane.addTab("Messaging", messagingPanel);
 
-        // Add TabbedPane to Frame
-        add(tabbedPane, BorderLayout.CENTER);
-
         // Client Management Tab
         JPanel clientManagementPanel = new JPanel(new BorderLayout());
-        String[] columnNames = {"ID", "Device Name", "Message","Date","Created At", "Resolved At", "Status"};
-        tableModel = new DefaultTableModel(columnNames, 0);
+        String[] columnNames = {"ID", "Device Name", "Lab Name", "Message", "Date", "Created At", "Resolved At", "Status"};
+        tableModel = new DefaultTableModel(columnNames, 0){
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false; // Disable editing
+            }
+        };
         clientTable = new JTable(tableModel);
         JScrollPane tableScrollPane = new JScrollPane(clientTable);
-        
+
+        JPanel clientButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        pendingButton = new JButton("Pending");
+        solveButton = new JButton("Mark Solved");
+        doneButton = new JButton("Mark Done");
+        clientButtonPanel.add(pendingButton);
+        clientButtonPanel.add(solveButton);
+        clientButtonPanel.add(doneButton);
+
         clientManagementPanel.add(tableScrollPane, BorderLayout.CENTER);
         clientManagementPanel.add(clientButtonPanel, BorderLayout.SOUTH);
         tabbedPane.addTab("Client Management", clientManagementPanel);
-        
-       // Report Generation Tab
-        JPanel reportPanel = new JPanel(new BorderLayout());
-        reportArea = new JTextArea();
-        reportArea.setEditable(false);
-        JScrollPane reportScrollPane = new JScrollPane(reportArea);
-        generateReportButton = new JButton("Generate Report");
 
+        // Report Generation Tab
+        JPanel reportPanel = new JPanel(new BorderLayout());
+        String[] reportColumnNames = {"ID", "Device Name", "Message", "IP Address", "Timestamp", "Resolved At", "Status"};
+        reportTableModel = new DefaultTableModel(reportColumnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Disable editing
+            }
+        };
+         reportTable = new JTable(reportTableModel);
+
+        // Use the JTable inside JScrollPane
+        JScrollPane reportScrollPane = new JScrollPane(reportTable);
+        generateReportButton = new JButton("Generate Report");
+        printReportButton = new JButton("Print Report"); // New Print Button
+
+        // Lab Selection Dropdown
+        String[] labs = {"All", "Lab 1", "Lab 2", "Lab 3", "Lab 4","Lab 5","Lab 6"};
+        labDropdown = new JComboBox<>(labs);
+        labDropdown.setSelectedIndex(0);
+
+        // Increase the width of the ComboBox
+        labDropdown.setPreferredSize(new Dimension(150, 25));
+
+        // Date Pickers
+        startDateChooser = new JDateChooser();
+        endDateChooser = new JDateChooser();
+        startDateChooser.setDate(new Date());
+        endDateChooser.setDate(new Date());
+
+        startDateChooser.setPreferredSize(new Dimension(150, 25));
+        endDateChooser.setPreferredSize(new Dimension(150, 25));
+
+        // Panel for Lab Selection & Date Filtering
+        JPanel labSelectionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        labSelectionPanel.add(new JLabel("Select Lab:"));
+        labSelectionPanel.add(labDropdown);
+        labSelectionPanel.add(new JLabel("Start Date:"));
+        labSelectionPanel.add(startDateChooser);
+        labSelectionPanel.add(new JLabel("End Date:"));
+        labSelectionPanel.add(endDateChooser);
+
+        // Panel for buttons (Generate Report & Print Report)
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        buttonPanel.add(generateReportButton);
+        buttonPanel.add(printReportButton); // Added Print Button
+
+
+
+
+        reportPanel.add(labSelectionPanel, BorderLayout.NORTH);
         reportPanel.add(reportScrollPane, BorderLayout.CENTER);
-        reportPanel.add(generateReportButton, BorderLayout.SOUTH);
+        reportPanel.add(buttonPanel, BorderLayout.SOUTH); // Add button panel at bottom
         tabbedPane.addTab("Report Generation", reportPanel);
+
         // Footer Panel
         JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JLabel footerLabel = new JLabel("Developed by Aditya | 2025", JLabel.RIGHT);
         footerPanel.add(footerLabel);
         add(footerPanel, BorderLayout.SOUTH);
 
-        
+        // Add TabbedPane to Frame
+        add(tabbedPane, BorderLayout.CENTER);
+
         // Register action listeners
         sendButton.addActionListener(this);
         pendingButton.addActionListener(this);
         solveButton.addActionListener(this);
         doneButton.addActionListener(this);
+        generateReportButton.addActionListener(this);
+        printReportButton.addActionListener(this);
         
         initializeDatabase();
         loadDataFromDatabase();
         setVisible(true);
     }
 
+
+
     private void initializeDatabase() {
         try {
             String url = "jdbc:mysql://localhost:3306/ClientServer";
             String username = "root";
-            String password = "Aditya@2005";
+            String password = "root";
             dbConnection = DriverManager.getConnection(url, username, password);
             appendMessage("Database connected successfully.\n");
         } catch (SQLException e) {
@@ -120,13 +180,14 @@ public class ServerUI extends JFrame implements ActionListener {
         }
     }
     private void loadDataFromDatabase() {
-    String query = "SELECT id, device_name, message, status, timestamp, created_at, resolved_at FROM ClientData ORDER BY CASE status WHEN 'Pending' THEN 1 WHEN 'Solved' THEN 2 WHEN 'Done' THEN 3 ELSE 4 END, id";
+    String query = "SELECT id, device_name,lab_name, message, status, timestamp, created_at, resolved_at FROM ClientData ORDER BY CASE status WHEN 'Pending' THEN 1 WHEN 'Solved' THEN 2 WHEN 'Done' THEN 3 ELSE 4 END, id";
     try (Statement stmt = dbConnection.createStatement();
          ResultSet rs = stmt.executeQuery(query)) {
         tableModel.setRowCount(0); // Clear existing rows
         while (rs.next()) {
             int id = rs.getInt("id");
             String deviceName = rs.getString("device_name");
+            String labname=rs.getString("lab_name");
             String message = rs.getString("message");
             String status = rs.getString("status");
             Timestamp timestamp = rs.getTimestamp("timestamp");
@@ -141,7 +202,7 @@ public class ServerUI extends JFrame implements ActionListener {
             String resolvedAtTime = resolvedAt != null ? new java.text.SimpleDateFormat("HH:mm:ss").format(resolvedAt) : "";
 
             // Add the data to the table model
-            tableModel.addRow(new Object[]{id,deviceName,message,timestampDate,createdAtTime,resolvedAtTime,status});
+            tableModel.addRow(new Object[]{id,deviceName,labname,message,timestampDate,createdAtTime,resolvedAtTime,status});
         }
         appendMessage("Data loaded and sorted by status successfully.\n");
     } catch (SQLException e) {
@@ -186,23 +247,165 @@ public class ServerUI extends JFrame implements ActionListener {
         if (e.getSource() == generateReportButton) {
             generateReport();
         }
-    }
-
-  private void generateReport() {
-        StringBuilder report = new StringBuilder();
-        String query = "SELECT status, COUNT(*) as count FROM ClientData GROUP BY status";
-        try (Statement stmt = dbConnection.createStatement();
-             ResultSet rs = stmt.executeQuery(query)) {
-            while (rs.next()) {
-                String status = rs.getString("status");
-                int count = rs.getInt("count");
-                report.append("Status: ").append(status).append(" - ").append(count).append("\n");
-            }
-            reportArea.setText(report.toString());
-        } catch (SQLException e) {
-            appendMessage("Error generating report: " + e.getMessage() + "\n");
+        if (e.getSource() == printReportButton) {
+            GenerateReportPDF();
         }
     }
+  private void GenerateReportPDF() {
+    String selectedLab = (String) labDropdown.getSelectedItem();
+    Date startDate = startDateChooser.getDate();
+    Date endDate = endDateChooser.getDate();
+
+    if (startDate == null || endDate == null) {
+        JOptionPane.showMessageDialog(this, "Please select both start and end dates.", "Error", JOptionPane.ERROR_MESSAGE);
+        return;
+    }
+
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    String startDateStr = sdf.format(startDate);
+    String endDateStr = sdf.format(endDate);
+
+    String query = "SELECT * FROM ClientData WHERE timestamp BETWEEN ? AND ?";
+    boolean isSpecificLabSelected = !selectedLab.equals("All");
+
+    if (isSpecificLabSelected) {
+        query += " AND lab_name = ?";
+    }
+
+    try (PreparedStatement stmt = dbConnection.prepareStatement(query)) {
+        stmt.setString(1, startDateStr + " 00:00:00");
+        stmt.setString(2, endDateStr + " 23:59:59");
+
+        if (isSpecificLabSelected) {
+            stmt.setString(3, selectedLab);
+        }
+
+        ResultSet rs = stmt.executeQuery();
+
+        String path = "Report.pdf";
+        OutputStream file = new FileOutputStream(new File(path));
+        Document document = new Document();
+        PdfWriter.getInstance(document, file);
+        document.open();
+
+        // PDF Metadata
+        document.addTitle("Lab Report");
+        document.addSubject("Lab Report Data");
+        document.addKeywords("Lab, Report, Data");
+        document.addAuthor("System Generated");
+        document.addCreator("Automated Report Generator");
+
+        // Title
+        document.add(new Paragraph("Lab Report", com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA_BOLD, 18, com.itextpdf.text.Font.BOLD, com.itextpdf.text.BaseColor.BLACK)));
+
+        document.add(new Paragraph("Lab: " + selectedLab));
+        document.add(new Paragraph("Report Duration: " + startDateStr + " to " + endDateStr));
+        document.add(new Paragraph("\n"));
+
+        // Creating Table
+        PdfPTable table = new PdfPTable(7); // 7 columns for all data fields
+        table.setWidthPercentage(100);
+        table.setSpacingBefore(10f);
+        table.setSpacingAfter(10f);
+
+        // Table Headers
+        String[] headers = {"ID", "Device", "Message", "IP", "Timestamp", "Resolved At", "Status"};
+        for (String header : headers) {
+            PdfPCell cell = new PdfPCell(new Phrase(header, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12)));
+            cell.setBackgroundColor(BaseColor.LIGHT_GRAY);
+            cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            table.addCell(cell);
+        }
+
+        boolean hasData = false;
+        while (rs.next()) {
+            hasData = true;
+            table.addCell(String.valueOf(rs.getInt("id")));
+            table.addCell(rs.getString("device_name"));
+            table.addCell(rs.getString("message"));
+            table.addCell(rs.getString("ip_address"));
+            table.addCell(rs.getTimestamp("timestamp").toString());
+            table.addCell(rs.getTimestamp("resolved_at") != null ? rs.getTimestamp("resolved_at").toString() : "N/A");
+            table.addCell(rs.getString("status"));
+        }
+
+        if (hasData) {
+            document.add(table);
+        } else {
+            document.add(new Paragraph("No records found for the selected criteria.", FontFactory.getFont(FontFactory.HELVETICA, 12, BaseColor.RED)));
+        }
+
+        document.close();
+        file.close();
+
+        Desktop desktop = Desktop.getDesktop();
+        desktop.open(new File(path)); // Open the PDF file automatically
+
+    } catch (SQLException | IOException | DocumentException e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Error generating PDF: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+    }
+}
+
+  private void generateReport() {
+    String selectedLab = (String) labDropdown.getSelectedItem();
+    Date startDate = startDateChooser.getDate();
+    Date endDate = endDateChooser.getDate();
+
+    if (startDate == null || endDate == null) {
+        JOptionPane.showMessageDialog(this, "Please select both start and end dates.", "Error", JOptionPane.ERROR_MESSAGE);
+        return;
+    }
+
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    String startDateStr = sdf.format(startDate);
+    String endDateStr = sdf.format(endDate);
+
+    String query = "SELECT * FROM ClientData WHERE timestamp BETWEEN ? AND ?";
+    boolean isSpecificLabSelected = !selectedLab.equals("All");
+
+    if (isSpecificLabSelected) {
+        query += " AND lab_name = ?";
+    }
+
+    try (PreparedStatement stmt = dbConnection.prepareStatement(query)) {
+        stmt.setString(1, startDateStr + " 00:00:00");
+        stmt.setString(2, endDateStr + " 23:59:59");
+
+        if (isSpecificLabSelected) {
+            stmt.setString(3, selectedLab);
+        }
+
+        ResultSet rs = stmt.executeQuery();
+
+        // Clear existing rows
+        reportTableModel.setRowCount(0);
+
+        boolean hasData = false;
+        while (rs.next()) {
+            hasData = true;
+            Object[] rowData = {
+                rs.getInt("id"),
+                rs.getString("device_name"),
+                rs.getString("message"),
+                rs.getString("ip_address"),
+                rs.getDate("timestamp"),
+                rs.getTime("resolved_at"),
+                 rs.getString("status")
+            };
+            reportTableModel.addRow(rowData);
+        }
+
+        if (!hasData) {
+            JOptionPane.showMessageDialog(this, "No records found for the selected criteria.", "Info", JOptionPane.INFORMATION_MESSAGE);
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Error generating report: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+    }
+}
+
+
 
     // Method to update client status in the table and database
     private void updateClientStatus(String status) {
@@ -242,7 +445,8 @@ public class ServerUI extends JFrame implements ActionListener {
 
     public void startServer() {
         try {
-            serverSocket = new ServerSocket(5000);
+            serverSocket = new ServerSocket(5000, 50, InetAddress.getByName("192.168.0.107"));
+
             appendMessage("Server started, waiting for clients...\n");
 
             while (true) {
@@ -320,22 +524,38 @@ public class ServerUI extends JFrame implements ActionListener {
         // Parse the combined message
         String[] lines = combinedMessage.split("\n");
         String timestampLine = lines[0].split(": ", 2)[1];
-        String deviceName = lines[1].split(": ", 2)[1];
-        String userMessage = lines[2].split(": ", 2)[1];
-        String ipAddress = lines[3].split(": ", 2)[1];
+        String labNumber = lines[1].split(": ", 2)[1]; // Extract Lab number
+        String deviceName = lines[2].split(": ", 2)[1];
+        String userMessage = lines[3].split(": ", 2)[1];
+        String ipAddress = lines[4].split(": ", 2)[1];
 
         // Convert the parsed timestamp to java.sql.Time (only the time)
         java.util.Date parsedDate = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.ENGLISH).parse(timestampLine);
-        java.sql.Time sqlTime = new java.sql.Time(parsedDate.getTime()); // Only the time part
+        
+      /*  String receivedMessage = dis.readUTF();
+if ("CHECK_PENDING".equals(receivedMessage)) {
+    String query = "SELECT COUNT(*) AS count FROM ClientData WHERE device_name = ? AND status = 'Pending'";
+    try (PreparedStatement pstmt = dbConnection.prepareStatement(query)) {
+        pstmt.setString(1, deviceName);
+        try (ResultSet rs = pstmt.executeQuery()) {
+            if (rs.next() && rs.getInt("count") > 0) {
+                dos.writeUTF("1");
+                return;
+            } else {
+                dos.writeUTF("0");
+            }
+        }
+    }
+}*/
 
         // Insert the parsed data into the database and retrieve the generated id
-        String query = "INSERT INTO ClientData (timestamp, device_name, message, ip_address, status, created_at) VALUES (?, ?, ?, ?, 'Pending', ?)";
+        String query = "INSERT INTO ClientData (timestamp, lab_name, device_name, message, ip_address, status, created_at) VALUES (?, ?, ?, ?, ?, 'Pending', CURRENT_TIME)";
         try (PreparedStatement pstmt = dbConnection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setDate(1, new java.sql.Date(parsedDate.getTime())); // Set date
-            pstmt.setString(2, deviceName);
-            pstmt.setString(3, userMessage);
-            pstmt.setString(4, ipAddress);
-            pstmt.setTime(5, sqlTime); // Set only the time
+            pstmt.setString(2, labNumber); // Set Lab Number
+            pstmt.setString(3, deviceName);
+            pstmt.setString(4, userMessage);
+            pstmt.setString(5, ipAddress);
             pstmt.executeUpdate();
 
             // Retrieve the generated id
@@ -346,7 +566,7 @@ public class ServerUI extends JFrame implements ActionListener {
 
                     // Add client data to the table
                     SwingUtilities.invokeLater(() -> {
-                        tableModel.insertRow(0, new Object[]{id, deviceName, userMessage, "Pending"}); // Insert at the top
+                        tableModel.insertRow(0, new Object[]{id, deviceName,labNumber,  userMessage, "Pending"}); // Insert at the top
                     });
                 }
             }
