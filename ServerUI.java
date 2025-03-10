@@ -20,7 +20,7 @@ import javax.swing.SwingUtilities;
 
 
 public class ServerUI extends JFrame implements ActionListener {
-    private JComboBox<String> labDropdown;  // Declare at class level
+    private JComboBox<String> labDropdown,statusDropdown;  // Declare at class level
     private JDateChooser startDateChooser, endDateChooser; 
     private JTextArea logArea,reportArea;    
     private JTextField inputField;
@@ -34,7 +34,7 @@ public class ServerUI extends JFrame implements ActionListener {
   public ServerUI() {
         // Set up the frame
         super("Server Dashboard");
-        setSize(900, 600);
+        setSize(1000, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
@@ -124,7 +124,11 @@ public class ServerUI extends JFrame implements ActionListener {
 
         startDateChooser.setPreferredSize(new Dimension(150, 25));
         endDateChooser.setPreferredSize(new Dimension(150, 25));
-
+        
+        String[] statuses = {"All", "Pending", "Solved", "Done"};
+        statusDropdown = new JComboBox<>(statuses);
+        statusDropdown.setSelectedIndex(0);
+        statusDropdown.setPreferredSize(new Dimension(150, 25));
         // Panel for Lab Selection & Date Filtering
         JPanel labSelectionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         labSelectionPanel.add(new JLabel("Select Lab:"));
@@ -133,6 +137,8 @@ public class ServerUI extends JFrame implements ActionListener {
         labSelectionPanel.add(startDateChooser);
         labSelectionPanel.add(new JLabel("End Date:"));
         labSelectionPanel.add(endDateChooser);
+        labSelectionPanel.add(new JLabel("Select Status:"));
+        labSelectionPanel.add(statusDropdown);
 
         // Panel for buttons (Generate Report & Print Report)
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
@@ -355,6 +361,7 @@ public class ServerUI extends JFrame implements ActionListener {
 
           private void generateReport() {
             String selectedLab = (String) labDropdown.getSelectedItem();
+            String selectedStatus=(String) statusDropdown.getSelectedItem();
             Date startDate = startDateChooser.getDate();
             Date endDate = endDateChooser.getDate();
 
@@ -369,9 +376,13 @@ public class ServerUI extends JFrame implements ActionListener {
 
             String query = "SELECT * FROM ClientData WHERE timestamp BETWEEN ? AND ?";
             boolean isSpecificLabSelected = !selectedLab.equals("All");
+            boolean isSpecificStatusSelected = !selectedStatus.equals("All");
 
             if (isSpecificLabSelected) {
                 query += " AND lab_name = ?";
+            }
+            if(isSpecificStatusSelected){
+                query+=" AND status = ?";
             }
 
             try (PreparedStatement stmt = dbConnection.prepareStatement(query)) {
@@ -380,6 +391,9 @@ public class ServerUI extends JFrame implements ActionListener {
 
                 if (isSpecificLabSelected) {
                     stmt.setString(3, selectedLab);
+                }
+                if(isSpecificStatusSelected){
+                    stmt.setString(4,selectedStatus);
                 }
 
                 ResultSet rs = stmt.executeQuery();

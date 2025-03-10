@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Array Functions</title>
+</head>
+<body>
+    <h2>Filter Function</h2>
+    <p>Get the elements in the array that have a value of 18 or more:</p>
+    <p id="filterDemo"></p>
+
+    <h2>Map Function</h2>
+    <p>Multiply each element in the array by 10:</p>
+    <p id="mapDemo"></p>
+
+    <h2>Reduce Function</h2>
+    <p>Compute the sum of rounded numbers in the array:</p>
+    <p id="reduceDemo"></p>
+
+    <script>
+        const ages = [32, 33, 16, 40];
+        const over18 = ages.filter(checkAdult);
+        document.getElementById("filterDemo").innerHTML = over18;
+
+        function checkAdult(age) {
+            return age >= 18;
+        }
+
+        const numbersForMap = [65, 44, 12, 4];
+        const mappedArray = numbersForMap.map(myFunction);
+        document.getElementById("mapDemo").innerHTML = mappedArray;
+
+        function myFunction(num) {
+            return num * 10;
+        }
+
+        const numbersForReduce = [65.3, 44.8, 12.2, 4];
+        const sum = numbersForReduce.reduce(myReducer, 0);
+        document.getElementById("reduceDemo").innerHTML = sum;
+
+        function myReducer(total, num) {
+            return total + Math.round(num);
+        }
+    </script>
+</body>
+</html>

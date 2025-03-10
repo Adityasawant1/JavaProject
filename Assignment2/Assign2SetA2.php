@@ -1,0 +1,9 @@
+<?php
+$id=$_POST['id'];
+$name=$_POST['n'];
+$username=$_POST['u'];
+$email=$_POST['e'];
+$data=json_decode(file_get_contents("Assign2SetA1.json"),true);
+$data[]=array("id"=>$id,"name"=>$name,"username"=>$username,"email"=>$email);
+file_put_contents("Assign2SetA1.json",json_encode($data,JSON_PRETTY_PRINT));
+?>
