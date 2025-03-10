@@ -6,7 +6,7 @@ import java.io.*;
 import java.sql.*;
 
 class ClientUI extends JFrame implements ActionListener {
-    JLabel l1, labLabel, noteLabel;
+    JLabel l1, labLabel;
     JTextArea message;
     JTextArea receivedMessages;
     JButton send, ext;
@@ -24,8 +24,8 @@ class ClientUI extends JFrame implements ActionListener {
 
         l1 = new JLabel("Mention Problem:");
         labLabel = new JLabel("Select Lab:");
-        noteLabel = new JLabel("Note: Message can be sent only once until the mentioned error gets solved.");
-        noteLabel.setForeground(Color.RED);
+        
+        
         ext = new JButton("EXIT");
         send = new JButton("SEND");
         message = new JTextArea("");
@@ -43,7 +43,7 @@ class ClientUI extends JFrame implements ActionListener {
         add(l1);
         add(labLabel);
         add(labDropdown);
-        add(noteLabel);
+        
         add(messageScrollPane);
         add(receivedScrollPane);
         add(send);
@@ -52,7 +52,7 @@ class ClientUI extends JFrame implements ActionListener {
         send.addActionListener(this);
         ext.addActionListener(this);
 
-        noteLabel.setBounds(10, 5, 500, 20); // Move note to the top
+        
         l1.setBounds(10, 60, 150, 30);
         labLabel.setBounds(10, 30, 150, 30);
         labDropdown.setBounds(100, 30, 150, 30);
@@ -111,7 +111,7 @@ class ClientUI extends JFrame implements ActionListener {
     }
     private void NetworkConnection(){
     try {
-            s = new Socket("192.168.0.107", 5000);
+            s = new Socket("localhost", 8000);
             dos = new DataOutputStream(s.getOutputStream());
             dis = new DataInputStream(s.getInputStream());
             new Thread(this::listenForMessages).start();
