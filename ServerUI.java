@@ -552,56 +552,80 @@ public class ServerUI extends JFrame implements ActionListener {
             }
 
         private void storeClientData(String combinedMessage) {
-        try {
-            // Parse the combined message
-            String[] lines = combinedMessage.split("\n");
-            String timestampLine = lines[0].split(": ", 2)[1];
-            String labNumber = lines[1].split(": ", 2)[1]; // Extract Lab number
-            String deviceName = lines[2].split(": ", 2)[1];
-            String userMessage = lines[3].split(": ", 2)[1];
-            String ipAddress = lines[4].split(": ", 2)[1];
+    try {
+        // Split the combined message
+        String[] lines = combinedMessage.split("\n");
+        int flag = Integer.parseInt(lines[0].split(": ", 2)[1]); // Extract the flag
 
-            // Convert the parsed timestamp to java.sql.Time (only the time)
+        if (flag == 1) { 
+            // **Handle Login Request**
+            String username = lines[1].split(": ", 2)[1];
+            String password = lines[2].split(": ", 2)[1];
+
+            String query = "SELECT * FROM users WHERE username = ? AND password = ?";
+            try (PreparedStatement pstmt = dbConnection.prepareStatement(query)) {
+                pstmt.setString(1, username);
+                pstmt.setString(2, password);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        dos.writeUTF("LOGIN_SUCCESS"); // Send success flag to client
+                        appendMessage("User '" + username + "' logged in successfully.\n");
+                    } else {
+                        dos.writeUTF("LOGIN_FAILED"); // Send failure flag to client
+                        appendMessage("Login failed for user '" + username + "'.\n");
+                    }
+                }
+            }
+        } else if (flag == 0) { 
+            // **Handle Storing Client Data**
+            String timestampLine = lines[1].split(": ", 2)[1];
+            String labNumber = lines[2].split(": ", 2)[1]; // Extract Lab number
+            String deviceName = lines[3].split(": ", 2)[1];
+            String userMessage = lines[4].split(": ", 2)[1];
+            String ipAddress = lines[5].split(": ", 2)[1];
+
+            // Convert timestamp
             java.util.Date parsedDate = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.ENGLISH).parse(timestampLine);
-            
-         
-            // Insert the parsed data into the database and retrieve the generated id
+
+            // Insert data into the database
             String query = "INSERT INTO ClientData (timestamp, lab_name, device_name, message, ip_address, status, created_at) VALUES (?, ?, ?, ?, ?, 'Pending', CURRENT_TIME)";
             try (PreparedStatement pstmt = dbConnection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
-                pstmt.setDate(1, new java.sql.Date(parsedDate.getTime())); // Set date
-                pstmt.setString(2, labNumber); // Set Lab Number
+                pstmt.setDate(1, new java.sql.Date(parsedDate.getTime()));
+                pstmt.setString(2, labNumber);
                 pstmt.setString(3, deviceName);
                 pstmt.setString(4, userMessage);
                 pstmt.setString(5, ipAddress);
                 pstmt.executeUpdate();
 
-                // Retrieve the generated id
+                // Retrieve the generated ID
                 try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
-                        int id = generatedKeys.getInt(1); // Retrieve the generated id
-                        appendMessage("\nClient data stored in database successfully with status 'Pending' and ID: " + id + ".\n");
+                        int id = generatedKeys.getInt(1);
+                        appendMessage("\nClient data stored successfully with ID: " + id + ".\n");
 
-                        // Add client data to the table
+                        // Add data to Swing Table
                         SwingUtilities.invokeLater(() -> {
-                        tableModel.insertRow(0, new Object[]{
-                            id, 
-                            deviceName, 
-                            labNumber, 
-                            userMessage, 
-                            new java.sql.Date(parsedDate.getTime()), // Convert to SQL Date
-                            new java.sql.Time(System.currentTimeMillis()), // Created At (CURRENT_TIMESTAMP)
-                            null, // Resolved At (Initially NULL)
-                            "Pending" // Status
+                            tableModel.insertRow(0, new Object[]{
+                                id, 
+                                deviceName, 
+                                labNumber, 
+                                userMessage, 
+                                new java.sql.Date(parsedDate.getTime()), 
+                                new java.sql.Time(System.currentTimeMillis()), 
+                                null, 
+                                "Pending"
+                            });
                         });
-                    });
                     }
                 }
             }
-        } catch (Exception e) {
-            appendMessage("Error parsing or storing client data: " + e.getMessage() + "\n");
+        } else {
+            appendMessage("Invalid flag received: " + flag + "\n");
         }
+    } catch (Exception e) {
+        appendMessage("Error processing request: " + e.getMessage() + "\n");
     }
-
+}
 
 
         public boolean isActive() {

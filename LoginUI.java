@@ -71,36 +71,36 @@ class ClientUI extends JFrame implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         try {
             if (e.getSource() == send) {
+          
                 InetAddress inetAddress = InetAddress.getLocalHost();
                 String ipAddress = inetAddress.getHostAddress();
                 String deviceName = inetAddress.getHostName();
                 String selectedLab = (String) labDropdown.getSelectedItem();
                 java.util.Date currentDate = new java.util.Date();
-                
-                // Check if "Default" is selected
+
                 if ("Default".equals(selectedLab)) {
                     JOptionPane.showMessageDialog(this, "Please select a valid lab.", "Warning", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
-              
+
                 String userMessage = message.getText();
                 if (userMessage.isEmpty()) {
                     JOptionPane.showMessageDialog(this, "Mention the problem.", "Warning", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
-                
-                String combinedMessage = "Timestamp: " + currentDate +
+
+                String combinedMessage = "Flag: 0" +
+                                         "\nTimestamp: " + currentDate +
                                          "\nLab: " + selectedLab +
                                          "\nDevice Name: " + deviceName +
                                          "\nMessage: " + userMessage +
-                                         "\nIP Address: " + ipAddress ;
-                                         
-                                         
-                
+                                         "\nIP Address: " + ipAddress;
+
                 dos.writeUTF(combinedMessage);
                 message.setText("");
                 JOptionPane.showMessageDialog(this, "Message sent to server.");
             }
+
 
             if (e.getSource() == ext) {
                 dos.writeUTF("exit");
@@ -155,6 +155,9 @@ class LoginUI extends JFrame implements ActionListener {
     JTextField userField;
     JPasswordField passField;
     JButton loginButton;
+    Socket socket;
+    DataOutputStream dos;
+    DataInputStream dis;
 
     LoginUI() {
         setTitle("Login Page");
@@ -183,25 +186,52 @@ class LoginUI extends JFrame implements ActionListener {
 
         loginButton.addActionListener(this);
 
+        try {
+            socket = new Socket("localhost", 8000); // Connect to server
+            dos = new DataOutputStream(socket.getOutputStream());
+            dis = new DataInputStream(socket.getInputStream());
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Server not available", "Error", JOptionPane.ERROR_MESSAGE);
+            System.exit(0);
+        }
+
         setVisible(true);
     }
 
     @Override
-    public void actionPerformed(ActionEvent e) {
+   public void actionPerformed(ActionEvent e) {
+    try {
         String username = userField.getText();
         String password = new String(passField.getPassword());
 
-        if (username.equals("admin") && password.equals("password")) { // Change this for real authentication
+        if (username.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Username and Password cannot be empty!", "Warning", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Format login message with flag 1
+        String loginMessage = "Flag: 1\nUsername: " + username + "\nPassword: " + password;
+
+        // Send login credentials to server
+        dos.writeUTF(loginMessage);
+        dos.flush();
+
+        // Read server response
+        String response = dis.readUTF();
+        if (response.equals("LOGIN_SUCCESS")) {
             JOptionPane.showMessageDialog(this, "Login Successful!");
             dispose(); // Close the login window
             new ClientUI("Client Application"); // Open Client UI
         } else {
             JOptionPane.showMessageDialog(this, "Invalid Credentials", "Error", JOptionPane.ERROR_MESSAGE);
         }
+    } catch (Exception ex) {
+        JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
     }
+}
+
 
     public static void main(String[] args) {
         new LoginUI();
     }
 }
-
