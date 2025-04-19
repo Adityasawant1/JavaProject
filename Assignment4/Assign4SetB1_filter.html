@@ -1,0 +1,24 @@
+<!-- Write a JavaScript program to demonstrate map, filter and reduce operations. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filter Function</title>
+</head>
+<body>
+    <h2> Filter Function</h2>
+    <p>Get the element in the array that has a value of 18 or more :</p>
+    <p id="demo"></p>
+
+    <script>
+        const ages =[32,33,16,40];
+        const over18 = ages.filter(checkAdult);
+        document.getElementById("demo").innerHTML = over18;
+
+        function checkAdult(age){
+            return age >= 18;
+        }
+    </script>
+</body>
+</html>

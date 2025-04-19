@@ -1,0 +1,37 @@
+[
+    {
+        "c_id": "1",
+        "c_name": "Avinash Bansode",
+        "c_address": "Pune",
+        "c_city": "Pune",
+        "c_contact": "1234567890"
+    },
+    {
+        "c_id": "2",
+        "c_name": "Yash Sharma",
+        "c_address": "Pune",
+        "c_city": "Pune",
+        "c_contact": "8007979796"
+    },
+    {
+        "c_id": "3",
+        "c_name": "Leanne Graham",
+        "c_address": "Pune",
+        "c_city": "Pune",
+        "c_contact": "1234567890"
+    },
+    {
+        "c_id": "4",
+        "c_name": "Aditya Graham",
+        "c_address": "Pune",
+        "c_city": "Pune",
+        "c_contact": "7972240310"
+    },
+    {
+        "c_id": "78",
+        "c_name": "yash",
+        "c_address": "RADAR",
+        "c_city": "baramati",
+        "c_contact": "56789985567"
+    }
+]

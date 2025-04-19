@@ -1,0 +1,28 @@
+<!-- Write a JavaScript program to demonstrate the onkeydown , onkeypress , onkeyup events. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script>
+        function keydown()
+        {
+            alert("key down");
+        }
+        function keypress()
+        {
+            alert("key press");
+        }
+        function keyup()
+        {
+            alert("key up");
+        }
+    </script>
+</head>
+<body>
+    type in this for the keydown  <input type="text" onkeydown="keydown()"><br>
+    type in this for the keypress  <input type="text" onkeypress="keypress()"><br>
+    type in this for the keyup  <input type="text" onkeyup="keyup()"><br>
+</body>
+</html>

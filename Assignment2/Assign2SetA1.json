@@ -1,0 +1,23 @@
+[
+    {
+        "rollno": "1",
+        "name": "Avinash Bansode",
+        "address": "Pune",
+        "city": "Pune",
+        "contact": "1234567890"
+    },
+    {
+        "rollno": "2",
+        "name": "Yash Sharma",
+        "address": "Pune",
+        "city": "Pune",
+        "contact": "8007979796"
+    },
+    {
+        "rollno": "3",
+        "name": "Leanne Graham",
+        "address": "Pune",
+        "city": "Pune",
+        "contact": "1234567890"
+    }
+]
